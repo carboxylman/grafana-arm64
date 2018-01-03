@@ -6,11 +6,12 @@ usage() {
   base="$(basename "$0")"
   cat <<EOUSAGE
 usage: $base [-r] <arch>
-Install specific packages to build grafana for either armv6 or armv7
+Install specific packages to build grafana for armv6, armv7, arm64 (armv8)
 Use -r for release package
 Available arch:
   $base armv6
   $base armv7
+  $base arm64
 EOUSAGE
 }
 
@@ -28,6 +29,7 @@ armv6_install_cross(){
   CROSSPATH="/tmp/cross-rpi1b/arm-rpi-4.9.3-linux-gnueabihf/bin/"
   CC=${CROSSPATH}/arm-linux-gnueabihf-gcc
   CXX=${CROSSPATH}/arm-linux-gnueabihf-g++
+  PARCH=armhf
 }
 
 armv7_install_cross() {
@@ -38,12 +40,24 @@ armv7_install_cross() {
   apt-get install -y crossbuild-essential-armhf
   CC=arm-linux-gnueabihf-gcc
   CXX=arm-linux-gnueabihf-g++
+  PARCH=armhf
+}
+
+arm64_install_cross() {
+  echo "deb http://emdebian.org/tools/debian/ jessie main" > /etc/apt/sources.list.d/crosstools.list
+  curl -sSL http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
+  dpkg --add-architecture arm64
+  apt-get update
+  apt-get install -y crossbuild-essential-arm64
+  CC=aarch64-linux-gnu-gcc
+  CXX=aarch64-linux-gnu-g++
+  PARCH=arm64
 }
 
 build() {
   cd $GOPATH/src/github.com/grafana/grafana
   go run build.go                   \
-     -pkg-arch=armhf                \
+     -pkg-arch=${PARCH}             \
      -goarch=${ARM}                 \
      -cgo-enabled=1                 \
      -cc=$CC                        \
@@ -77,6 +91,11 @@ case "$ARM" in
   armv7)
     PHJSV="v2.1.1-wheezy-jessie"
     armv7_install_cross
+    ;;
+  arm64|aarch64|armv8)
+    PHJSV="v2.1.1-wheezy-jessie"
+    ARM=arm64
+    arm64_install_cross
     ;;
   *)
     echo >&2 'error: unknown arch:' "$ARM"
